@@ -4,6 +4,9 @@ class IcomR8500:
     header = "FEFE" # fixed header
     radioAddress = "4A"
     computerAddress = "E0"
+    radTofreq = [8,9,6,7,4,5,2,3,0,1]
+    freqToRad = [8,9,6,7,4,5,2,3,0,1]
+
     #ser = serial.Serial("/dev/ttyUSB0",baudrate=19200,timeout=1)
     def __init__(self, serialport="/dev/ttyUSB0", baudrate=19200, timeout=1):
 
@@ -43,82 +46,92 @@ class IcomR8500:
 
     def readFreqEdges(self):
         Cn = "02"
-        Sc = None
-
+        return self.writeToRadio(Cn)
+    
     def readOperFreq(self):
         Cn = "03"
-        return self.writeToRadio(Cn)
+        reply = self.writeToRadio(Cn)
+        #print(reply)
+        return reply
         
     def readOperMode(self):
         Cn = "04"
+        Sn = "00"
         return self.writeToRadio(Cn)
         
-    def readMchContentsPackage(self):
+    def readMchContentsPackage(self,data):
         Cn = "1A"
         Sc = "01"
-        return self.writeToRadio(Cn,Sc)
+        return self.writeToRadio(Cn,Sc,data)
         
-    def readBankName(self):
+    def readBankName(self,data):
         Cn = "1A"
         Sc = "03"
-        return self.writeToRadio(Cn,Sc)
+        return self.writeToRadio(Cn,Sc,data)
 
-    def readSquelchCondition(self):
+        # returns squelch on (01) / off (00)
+    def readSquelchCondition(self): 
         Cn = "15"
         Sc = "01"
         return self.writeToRadio(Cn,Sc)
     
+        # returns S-meter level
     def readSmeterLevel(self):
         Cn = "15"
         Sc = "02"
         return self.writeToRadio(Cn,Sc)
     
+        # returns Radio address
     def readModelID(self):
         Cn = "19"
         Sc = "00"
         return self.writeToRadio(Cn,Sc)
 
+
     def setFreq(self, freq):
         Cn = "05"
         Sc = ""
+        respTofreq
         data = "9078563412"
         return self.writeToRadio(Cn,Sc,data)
         
-    def setOpMode(self, mode):
+    def setOpMode(self, mode): # toimii
         Cn = "06"
-        if mode == "LSB":
+        if mode == "LSB" or mode == 0:
             Sc = "0001"
-        elif mode == "USB":
+        elif mode == "USB" or mode == 1:
             Sc = "0101"
-        elif mode == "AM":
+        elif mode == "AM" or mode == 2:
             Sc = "0202"
-        elif mode == "AMn":
+        elif mode == "AMn" or mode == 3:
             Sc = "0201"
-        elif mode == "AMw":
+        elif mode == "AMw" or mode == 4:
             Sc = "0203"
-        elif mode == "CW":
+        elif mode == "CW" or mode == 5:
             Sc = "0301"
-        elif mode == "CWn":
+        elif mode == "CWn" or mode == 6:
             Sc = "0302"
-        elif mode == "FM":
+        elif mode == "FM" or mode == 7:
             Sc = "0501"
-        elif mode == "FMn":
+        elif mode == "FMn" or mode == 8:
             Sc = "0502"
-        elif mode == "FMw":
+        elif mode == "FMw" or mode == 9:
             Sc = "0601"
         else:
             return "Mode not supperted"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def MemoryChannelSelection(self):
+        # set Memory channel (from 00 to 99)
+    def MemoryChannelSelection(self, data):
         Cn = "08"
-        Sc = None
-        return self.writeToRadio(Cn)
+        Sc = ""
+        return self.writeToRadio(Cn, Sc, data)
 
-    def BankSelection(self):
+        # set Bank selection (from 00 to 19)
+    def BankSelection(self, data):
         Cn = "08"
         Sc = "A0"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn, Sc, data)
 
     def MemoryWrite(self):
         Cn = "09"
@@ -130,10 +143,11 @@ class IcomR8500:
         Sc = "00"
         return self.writeToRadio(Cn)
 
-    def SetBankName(self):
+        # set bank name 8 char long. ascii values
+    def SetBankName(self, name):
         Cn = "1A"
         Sc = "02"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn, Sc, name)
 
     def MemoryClear(self):
         Cn = "0B"
@@ -210,74 +224,79 @@ class IcomR8500:
         Sc = "D3"
         return self.writeToRadio(Cn)
 
-    def SetTuningStep(self, step, stepfreq):
+    def SetTuningStep(self, stepfreq, custom = ""):
         Cn = "10"
-        if freq == "10Hz":
+        if stepfreq == "10Hz" or stepfreq == 0:
             Sc = "00"
-        elif freq == "50Hz":
+        elif stepfreq == "50Hz" or stepfreq == 1:
             Sc = "01"
-        elif freq == "100Hz":
+        elif stepfreq == "100Hz" or stepfreq == 2:
             Sc = "02"
-        elif freq == "1kHz":
+        elif stepfreq == "1kHz" or stepfreq == 3:
             Sc = "03"
-        elif freq == "2.5kHz":
+        elif stepfreq == "2.5kHz" or stepfreq == 4:
             Sc = "04"
-        elif freq == "5kHz":
+        elif stepfreq == "5kHz" or stepfreq == 5:
             Sc = "05"
-        elif freq == "9kHz":
+        elif stepfreq == "9kHz" or stepfreq == 6:
             Sc = "06"
-        elif freq == "10kHz":
+        elif stepfreq == "10kHz" or stepfreq == 7:
             Sc = "07"
-        elif freq == "12.5kHz":
+        elif stepfreq == "12.5kHz" or stepfreq == 8:
             Sc = "08"
-        elif freq == "20kHz":
+        elif stepfreq == "20kHz" or stepfreq == 9:
             Sc = "09"
-        elif freq == "25kHz":
+        elif stepfreq == "25kHz" or stepfreq == 10:
             Sc = "10"
-        elif freq == "100kHz":
+        elif stepfreq == "100kHz" or stepfreq == 11:
             Sc = "11"
-        elif freq == "1MHz":
+        elif stepfreq == "1MHz" or stepfreq == 12:
             Sc = "12"
-        elif freq == "Prog":
+        elif stepfreq == "Prog" or stepfreq == 13:
             Sc = "13"
+            custom = "9519"
         else:
             return "Mode not supperted"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn, Sc, custom)
         
     def setAttenuator(self, attenuation): #toimii
         Cn = "11"
-        if attenuation == "OFF":
+        if attenuation == "OFF" or attenuation == 0:
             Sc = "00"
-        elif attenuation == "10dB":
+        elif attenuation == "10dB" or attenuation == 1:
             Sc = "10"
-        elif attenuation == "20dB":
+        elif attenuation == "20dB" or attenuation == 2:
             Sc = "20"
-        elif attenuation == "30dB":
+        elif attenuation == "30dB" or attenuation == 3:
             Sc = "30"
         else:
             return "Value not supported"
         return self.writeToRadio(Cn,Sc)
 
-    def VoiceSynt(self, freq):
+    def VoiceSynt(self):
         Cn = "13"
         Sc = "00"
         return self.writeToRadio(Cn)
 
+        # range 0000 to 0255
     def AFGain(self, value):
         Cn = "14"
         Sc = "01"
         return self.writeToRadio(Cn)
-
+    
+        # range 0000 to 0255
     def SquelchLevel(self, value):
         Cn = "14"
         Sc = "03"
         return self.writeToRadio(Cn)
     
+        # range 0000 to 0255, center 128
     def IFShift(self, level):
         Cn = "14"
         Sc = "04"
         return self.writeToRadio(Cn)
 
+        # range 0000 to 0255, center 128
     def APFControl(self, level):
         Cn = "14"
         Sc = "05"
@@ -338,17 +357,19 @@ class IcomR8500:
 
     def writeToRadio(self, Cn = "", Sc="", data=""):
         dataToRadio = self.header + self.radioAddress + self.computerAddress + Cn + Sc + data + "FD"
-        # print(dataToRadio)
+        print("dataToRadio: " + dataToRadio)
         testcode = bytes.fromhex(dataToRadio)
-        print(testcode)
+        # print("sending over serial:" + str(testcode))
         self.ser.write(testcode)
         
         reply = self.ser.read_until(b'\xfd').hex()
+        reply2 = self.ser.read_until(b'\xfd').hex()
         
-        print(reply)
-        if (reply == self.header + " " + self.radioAddress + " " + self.computerAddress + "FB" + data + "FD"):
+        print("reading reply: " + reply)
+        print("reading reply2: " + reply2)
+        if (reply.lower() == (self.header + self.radioAddress + self.computerAddress + "FB" + "FD").lower()):
             return "OK"
-        elif (reply == self.header + " " + self.radioAddress + " " + self.computerAddress + "FA" + data + "FD"):
+        elif (reply.lower() == (self.header + self.radioAddress + self.computerAddress + "FA" + "FD").lower()):
             return "NG"
         else:
-            return reply
+            return reply, reply2
