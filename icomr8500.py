@@ -1,4 +1,5 @@
 import serial
+import numpy as np
 
 class IcomR8500:
     header = "FEFE" # fixed header
@@ -44,20 +45,43 @@ class IcomR8500:
     def setComputerAddress(self, computerAddress = "E0"):
         self.computerAddress = computerAddress
 
-    def readFreqEdges(self):
+    def readFreqEdges(self): # return min and max frequencies for the radio, toimii
         Cn = "02"
-        return self.writeToRadio(Cn)
+        value = self.writeToRadio(Cn)
+        freq1 = self.FreqToRad(value[:10]) # min freq
+        freq2 = self.FreqToRad(value[12:]) # max freq
+        return freq1, freq2
     
-    def readOperFreq(self):
+    def readOperFreq(self): # toimii
         Cn = "03"
-        reply = self.writeToRadio(Cn)
-        #print(reply)
-        return reply
+        freq = self.writeToRadio(Cn)
+        return int(self.FreqToRad(freq))
         
-    def readOperMode(self):
+    def readOperMode(self): # toimii
         Cn = "04"
-        Sn = "00"
-        return self.writeToRadio(Cn)
+        mode = self.writeToRadio(Cn)
+        print(mode)
+        if mode == "0001":
+            return "LSB 2.2kHz"
+        elif mode == "0101":
+            return "USB 2.2kHz"
+        elif mode == "0202":
+            return "AM 5.5kHz"
+        elif mode == "0201":
+            return "AM narrow 2.2kHz"
+        elif mode == "0203":
+            return "AM wide 12kHz"
+        elif mode == "0301":
+            return "CW 2.2kHz"
+        elif mode == "0302":
+            return "CW narrow 500Hz"
+        elif mode == "0501":
+            return "FM 12kHz"
+        elif mode == "0502":
+            return "FM narrow 5.5kHz"
+        elif mode == "0601":
+            return "FM wide 150kHz"
+        return mode
         
     def readMchContentsPackage(self,data):
         Cn = "1A"
@@ -69,11 +93,16 @@ class IcomR8500:
         Sc = "03"
         return self.writeToRadio(Cn,Sc,data)
 
-        # returns squelch on (01) / off (00)
+        # returns squelch on (0101) / off (0100)
     def readSquelchCondition(self): 
         Cn = "15"
         Sc = "01"
-        return self.writeToRadio(Cn,Sc)
+        value = self.writeToRadio(Cn,Sc)
+        if value == "0101":
+            print("Squelch Off")
+        else:
+            print("Squelch On")
+        return value
     
         # returns S-meter level
     def readSmeterLevel(self):
@@ -87,12 +116,10 @@ class IcomR8500:
         Sc = "00"
         return self.writeToRadio(Cn,Sc)
 
-
     def setFreq(self, freq):
         Cn = "05"
         Sc = ""
-        respTofreq
-        data = "9078563412"
+        data = self.FreqToRad(freq)
         return self.writeToRadio(Cn,Sc,data)
         
     def setOpMode(self, mode): # toimii
@@ -224,6 +251,8 @@ class IcomR8500:
         Sc = "D3"
         return self.writeToRadio(Cn)
 
+        # toimii, custom step todo
+        # programmable step 0.5 - 199.5 kHz in 0.5 kHz steps
     def SetTuningStep(self, stepfreq, custom = ""):
         Cn = "10"
         if stepfreq == "10Hz" or stepfreq == 0:
@@ -273,87 +302,91 @@ class IcomR8500:
             return "Value not supported"
         return self.writeToRadio(Cn,Sc)
 
-    def VoiceSynt(self):
+        # ei hajua mitä tekee / toimiiko
+    def VoiceSynt(self, value):
         Cn = "13"
         Sc = "00"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc,value)
 
         # range 0000 to 0255
-    def AFGain(self, value):
+    def AFGain(self, value): # toimii
         Cn = "14"
         Sc = "01"
-        return self.writeToRadio(Cn)
+        value = str(int(value)).zfill(4)
+        return self.writeToRadio(Cn, Sc, value)
     
         # range 0000 to 0255
-    def SquelchLevel(self, value):
+    def SquelchLevel(self, value): # toimii
         Cn = "14"
         Sc = "03"
-        return self.writeToRadio(Cn)
+        value = str(int(value)).zfill(4)
+        return self.writeToRadio(Cn, Sc, value)
     
         # range 0000 to 0255, center 128
-    def IFShift(self, level):
+    def IFShift(self, value): # toimii
         Cn = "14"
         Sc = "04"
-        return self.writeToRadio(Cn)
+        value = str(int(value)).zfill(4)
+        return self.writeToRadio(Cn, Sc, value)
 
         # range 0000 to 0255, center 128
-    def APFControl(self, level):
+    def APFControl(self, value): # toimii
         Cn = "14"
         Sc = "05"
-        return self.writeToRadio(Cn)
+        value = str(int(value)).zfill(4)
+        return self.writeToRadio(Cn, Sc, value)
 
+        # Automatic Gain Control
     def MemClear_AGC_Off(self):
         Cn = "16"
         Sc = "10"
         return self.writeToRadio(Cn)
 
+        # Automatic Gain Control
     def MemClear_AGC_On(self):
         Cn = "16"
         Sc = "11"
         return self.writeToRadio(Cn)
         
+        # Noice Blocker
     def MemClear_NB_Off(self):
         Cn = "16"
         Sc = "20"
         return self.writeToRadio(Cn)
         
+        # Noice Blocker
     def MemClear_NB_On(self):
         Cn = "16"
         Sc = "21"
         return self.writeToRadio(Cn)
 
+        # Audio peak filter
     def MemClear_APF_Off(self):
         Cn = "16"
         Sc = "30"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn, Sc)
 
+        # Audio peak filter
     def MemClear_APF_On(self):
         Cn = "16"
         Sc = "31"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn, Sc)
 
-    def Power_Off(self):
+    def Power_Off(self): # toimii
         Cn = "18"
         Sc = "00"
         self.writeToRadio(Cn,Sc)
         
-    def Power_On(self):
+    def Power_On(self): # toimii
         Cn = "18"
         Sc = "01"
         self.writeToRadio(Cn,Sc)
         
-    def respToFreq(self, freqBytes):
-        
-        respTofreq = [8,9,6,7,4,5,2,3,0,1]
-        respTofreqExp = [1e1,1e0,1e3,1e2,1e5,1e4,1e7,1e6,1e9,1e8]
-
-        freq = fromradio[1][10:-2]
-        # print(freq)
-        freq2 = 0
-        for idy in respTofreq:
-            freq2 += int(freq[idy])*respTofreqExp[idy] 
-        print(freq2)
-
+    def FreqToRad(self, value=0): # toimii
+        value = str(int(value)).zfill(10)
+        #print(''.join([value[i] for i in [8,9,6,7,4,5,2,3,0,1]]))
+        return ''.join([value[i] for i in [8,9,6,7,4,5,2,3,0,1]])
+    
 
     def writeToRadio(self, Cn = "", Sc="", data=""):
         dataToRadio = self.header + self.radioAddress + self.computerAddress + Cn + Sc + data + "FD"
@@ -362,14 +395,13 @@ class IcomR8500:
         # print("sending over serial:" + str(testcode))
         self.ser.write(testcode)
         
-        reply = self.ser.read_until(b'\xfd').hex()
-        reply2 = self.ser.read_until(b'\xfd').hex()
+        testcode_echo = self.ser.read_until(b'\xfd').hex()
+        reply = self.ser.read_until(b'\xfd').hex()[10:-2]
         
         print("reading reply: " + reply)
-        print("reading reply2: " + reply2)
-        if (reply.lower() == (self.header + self.radioAddress + self.computerAddress + "FB" + "FD").lower()):
+        if (reply.lower() == (self.header + self.radioAddress +  self.computerAddress + "FB" + "FD").lower()):
             return "OK"
         elif (reply.lower() == (self.header + self.radioAddress + self.computerAddress + "FA" + "FD").lower()):
             return "NG"
         else:
-            return reply, reply2
+            return reply
