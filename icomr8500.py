@@ -1,19 +1,37 @@
 import serial
-import numpy as np
+
+class ChannelData:
+    def __init__(self, freqRead, modeRead, tuningStepRead, ATTRead, SCNRead, ChannelNameRead):
+        self.frequency = freqRead
+        self.mode = modeRead
+        self.tuningstep = tuningStepRead
+        self.attenuation = ATTRead
+        self.SCN = SCNRead
+        self.channelname = ChannelNameRead
+    
+    def raw(self):
+        frequency = str(int(self.frequency)).zfill(10)
+        frequency = ''.join([frequency[i] for i in [8,9,6,7,4,5,2,3,0,1]])
+        mode = self.mode
+        tuningstep = self.tuningstep
+        attenuation = self.attenuation
+        SCN = self.SCN
+        channelname = "{:>8}".format(self.channelname[:8]).encode("ASCII").hex()
+        # print(frequency)
+        # print(mode)
+        # print(tuningstep)
+        # print(attenuation)
+        # print(SCN)
+        # print(channelname)
+        return frequency+mode+tuningstep+attenuation+SCN+channelname
+
 
 class IcomR8500:
     header = "FEFE" # fixed header
     radioAddress = "4A"
     computerAddress = "E0"
-    radTofreq = [8,9,6,7,4,5,2,3,0,1]
-    freqToRad = [8,9,6,7,4,5,2,3,0,1]
 
-    #ser = serial.Serial("/dev/ttyUSB0",baudrate=19200,timeout=1)
     def __init__(self, serialport="/dev/ttyUSB0", baudrate=19200, timeout=1):
-
-        # header = "FEFE"
-        # radioAddress = "A4"
-        # computerAddress = "E0"
 
         self.serialPort = serialport
         self.baudrate = baudrate
@@ -23,27 +41,6 @@ class IcomR8500:
             self.ser = serial.Serial(self.serialPort,baudrate=self.baudrate,timeout=self.timeout)
         except:
             return "Init failed to open radio"
-
-    def setPort(self,serialPort = "/dev/ttyUSB0"):
-        self.serialPort = serialPort
-
-    def printPort(self):
-        return self.serialPort
-
-    def setRadioAddress(self,radioAddress = "4A"):
-        self.radioAddress = radioAddress
-
-    def printRadioAddress(self):
-        return self.radioAddress
-
-    def setBaudrate(self, baudrate = "19600"):
-        self.baudrate = baudrate
-
-    def returnBaudrate(self):
-        return self.baudrate
-
-    def setComputerAddress(self, computerAddress = "E0"):
-        self.computerAddress = computerAddress
 
     def readFreqEdges(self): # return min and max frequencies for the radio, toimii
         Cn = "02"
@@ -83,34 +80,65 @@ class IcomR8500:
             return "FM wide 150kHz"
         return mode
         
-    def readMchContentsPackage(self,data):
+    def readMchContentsPackage(self,bank,channel): # onko tuning step aina 6?
         Cn = "1A"
         Sc = "01"
-        return self.writeToRadio(Cn,Sc,data)
+        bank = str(bank).zfill(2)
+        channel = str(channel).zfill(4)
+        data=bank+channel
+
+        value = self.writeToRadio(Cn,Sc,data)
+        bankRead = int(value[0:2])
+        channelRead = int(value[2:6])
+        data = value[6:]
+        if data != "ff":
+            freqRead = str(int(self.FreqToRad(data[:10])))
+            modeRead = data[10:14]
+            tuningStepRead = data[14:20]
+            ATTRead = data[20:22]
+            SCNRead = data[22:24]
+            ChannelNameRead = bytes.fromhex(data[24:]).decode()[1:]
+            print("Bank: " + str(bankRead) + " Channel: " + str(channelRead) + " Frequency: " + freqRead + " mode: " + modeRead + " tuning step: " + tuningStepRead + " ATT: " + ATTRead + " SCN: " + SCNRead + " Channel Name: " + ChannelNameRead)
+            return ChannelData(freqRead, modeRead, tuningStepRead, ATTRead, SCNRead, ChannelNameRead)
+        else:
+            print("Channel empty")
+            return "Bank: " + str(bankRead) + " Channel: " + str(channelRead) + " Empty"
         
-    def readBankName(self,data):
+    def readBankName(self,bank): # toimii
         Cn = "1A"
         Sc = "03"
-        return self.writeToRadio(Cn,Sc,data)
+        if bank == "free":
+            bank = 20
+        elif bank == "auto":
+            bank = 21
+        elif bank == "skip":
+            bank = 22
+        elif bank == "prog":
+            bank = 23
+        elif bank == "prio":
+            bank = 24
+        bank = str(bank).zfill(2)
+        value = self.writeToRadio(Cn,Sc,bank)
+        return bytes.fromhex(value).decode()[1:]
 
-        # returns squelch on (0101) / off (0100)
+        # returns squelch on (01) / off (00) # toimii
     def readSquelchCondition(self): 
         Cn = "15"
         Sc = "01"
         value = self.writeToRadio(Cn,Sc)
-        if value == "0101":
+        if value == "01":
             print("Squelch Off")
         else:
             print("Squelch On")
         return value
     
-        # returns S-meter level
+        # returns S-meter level # toimii
     def readSmeterLevel(self):
         Cn = "15"
         Sc = "02"
-        return self.writeToRadio(Cn,Sc)
+        return int(self.writeToRadio(Cn,Sc))
     
-        # returns Radio address
+        # returns Radio address # toimii
     def readModelID(self):
         Cn = "19"
         Sc = "00"
@@ -148,33 +176,43 @@ class IcomR8500:
             return "Mode not supperted"
         return self.writeToRadio(Cn,Sc)
 
-        # set Memory channel (from 00 to 99)
-    def MemoryChannelSelection(self, data):
+        # set Memory channel (from 00 to 99) # toimii
+    def MemoryChannelSelection(self, channelnumber):
         Cn = "08"
         Sc = ""
-        return self.writeToRadio(Cn, Sc, data)
+        channelnumber = str(channelnumber).zfill(4)
+        return self.writeToRadio(Cn, Sc, channelnumber)
 
-        # set Bank selection (from 00 to 19)
-    def BankSelection(self, data):
+        # set Bank selection (from 00 to 19) # toimii
+    def BankSelection(self, banknumber):
         Cn = "08"
         Sc = "A0"
-        return self.writeToRadio(Cn, Sc, data)
+        banknumber = str(banknumber).zfill(2)
+        return self.writeToRadio(Cn, Sc, banknumber)
 
     def MemoryWrite(self):
         Cn = "09"
-        Sc = None
+        Sc = ""
         return self.writeToRadio(Cn)
 
-    def SetMCHContentAndWritePackage(self):
+        # set channel parameters and write #TODO
+    def SetMCHContentAndWritePackage(self, banknumber, channelnumber, ChannelData):
         Cn = "1A"
         Sc = "00"
-        return self.writeToRadio(Cn)
+        banknumber = str(banknumber).zfill(2)
+        channelnumber = str(channelnumber).zfill(4)
+        data = banknumber+channelnumber+ChannelData.raw()
+        return self.writeToRadio(Cn, Sc, data)
 
-        # set bank name 8 char long. ascii values
-    def SetBankName(self, name):
+        # set bank name 5 char long. ascii values
+    def SetBankName(self, bank, name):
         Cn = "1A"
         Sc = "02"
-        return self.writeToRadio(Cn, Sc, name)
+        name = "{:>5}".format(name[:5])
+        name = name.encode("ASCII").hex()
+        bank = str(bank).zfill(2)
+        data = bank+name
+        return self.writeToRadio(Cn, Sc, data)
 
     def MemoryClear(self):
         Cn = "0B"
@@ -251,7 +289,7 @@ class IcomR8500:
         Sc = "D3"
         return self.writeToRadio(Cn)
 
-        # toimii, custom step todo
+        # toimii, custom step TODO
         # programmable step 0.5 - 199.5 kHz in 0.5 kHz steps
     def SetTuningStep(self, stepfreq, custom = ""):
         Cn = "10"
@@ -283,10 +321,12 @@ class IcomR8500:
             Sc = "12"
         elif stepfreq == "Prog" or stepfreq == 13:
             Sc = "13"
-            custom = "9519"
+            custom = ''.join([str(custom*10)[i] for i in [2,3,0,1]])
+            #custom = "9519"
+            return self.writeToRadio(Cn, Sc, custom)
         else:
-            return "Mode not supperted"
-        return self.writeToRadio(Cn, Sc, custom)
+            return "Mode not supported"
+        return self.writeToRadio(Cn, Sc)
         
     def setAttenuator(self, attenuation): #toimii
         Cn = "11"
@@ -336,38 +376,38 @@ class IcomR8500:
         value = str(int(value)).zfill(4)
         return self.writeToRadio(Cn, Sc, value)
 
-        # Automatic Gain Control
-    def MemClear_AGC_Off(self):
+        # Automatic Gain Control # toimii
+    def AGC_Off(self):
         Cn = "16"
         Sc = "10"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-        # Automatic Gain Control
-    def MemClear_AGC_On(self):
+        # Automatic Gain Control # toimii
+    def AGC_On(self):
         Cn = "16"
         Sc = "11"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
         
-        # Noice Blocker
-    def MemClear_NB_Off(self):
+        # Noice Blocker # toimii
+    def NB_Off(self):
         Cn = "16"
         Sc = "20"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
         
-        # Noice Blocker
-    def MemClear_NB_On(self):
+        # Noice Blocker # toimii
+    def NB_On(self):
         Cn = "16"
         Sc = "21"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-        # Audio peak filter
-    def MemClear_APF_Off(self):
+        # Audio peak filter # toimii
+    def APF_Off(self):
         Cn = "16"
         Sc = "30"
         return self.writeToRadio(Cn, Sc)
 
-        # Audio peak filter
-    def MemClear_APF_On(self):
+        # Audio peak filter # toimii
+    def APF_On(self):
         Cn = "16"
         Sc = "31"
         return self.writeToRadio(Cn, Sc)
@@ -384,22 +424,21 @@ class IcomR8500:
         
     def FreqToRad(self, value=0): # toimii
         value = str(int(value)).zfill(10)
-        #print(''.join([value[i] for i in [8,9,6,7,4,5,2,3,0,1]]))
         return ''.join([value[i] for i in [8,9,6,7,4,5,2,3,0,1]])
     
 
-    def writeToRadio(self, Cn = "", Sc="", data=""):
+    def writeToRadio(self, Cn="", Sc="", data=""):
         dataToRadio = self.header + self.radioAddress + self.computerAddress + Cn + Sc + data + "FD"
         print("dataToRadio: " + dataToRadio)
         testcode = bytes.fromhex(dataToRadio)
-        # print("sending over serial:" + str(testcode))
         self.ser.write(testcode)
         
         testcode_echo = self.ser.read_until(b'\xfd').hex()
-        reply = self.ser.read_until(b'\xfd').hex()[10:-2]
+        headerlen = len(self.header + self.radioAddress + self.computerAddress + Cn + Sc)
+        reply = self.ser.read_until(b'\xfd').hex()[headerlen:-2]
         
         print("reading reply: " + reply)
-        if (reply.lower() == (self.header + self.radioAddress +  self.computerAddress + "FB" + "FD").lower()):
+        if (reply.lower() == (self.header + self.radioAddress + self.computerAddress + "FB" + "FD").lower()):
             return "OK"
         elif (reply.lower() == (self.header + self.radioAddress + self.computerAddress + "FA" + "FD").lower()):
             return "NG"
