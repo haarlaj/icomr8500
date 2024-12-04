@@ -6,9 +6,10 @@ class ChannelData:
         self.mode = modeRead
         self.tuningstep = tuningStepRead
         self.attenuation = ATTRead
+        # 00 none, 01 SEL-CH, 02 SKIP-CH, 03 In manual 01 and 02 are reversed?
         self.SCN = SCNRead
         self.channelname = ChannelNameRead
-    
+
     def raw(self):
         frequency = str(int(self.frequency)).zfill(10)
         frequency = ''.join([frequency[i] for i in [8,9,6,7,4,5,2,3,0,1]])
@@ -25,13 +26,16 @@ class ChannelData:
         # print(channelname)
         return frequency+mode+tuningstep+attenuation+SCN+channelname
 
+#todo
+# def VoiceSynt(self, value)
+# def SetTuningStep <- custom step
 
 class IcomR8500:
     header = "FEFE" # fixed header
     radioAddress = "4A"
     computerAddress = "E0"
 
-    def __init__(self, serialport="/dev/ttyUSB0", baudrate=19200, timeout=1):
+    def __init__(self, serialport="/dev/ttyUSB0", baudrate=19200, timeout=1): # toimii
 
         self.serialPort = serialport
         self.baudrate = baudrate
@@ -45,9 +49,9 @@ class IcomR8500:
     def readFreqEdges(self): # return min and max frequencies for the radio, toimii
         Cn = "02"
         value = self.writeToRadio(Cn)
-        freq1 = self.FreqToRad(value[:10]) # min freq
-        freq2 = self.FreqToRad(value[12:]) # max freq
-        return freq1, freq2
+        self.freqlo = self.FreqToRad(value[:10]) # min freq
+        self.freqhi = self.FreqToRad(value[12:]) # max freq
+        return self.freqlo, self.freqhi
     
     def readOperFreq(self): # toimii
         Cn = "03"
@@ -80,7 +84,7 @@ class IcomR8500:
             return "FM wide 150kHz"
         return mode
         
-    def readMchContentsPackage(self,bank,channel): # onko tuning step aina 6?
+    def readMchContentsPackage(self,bank,channel): # toimii
         Cn = "1A"
         Sc = "01"
         bank = str(bank).zfill(2)
@@ -144,7 +148,7 @@ class IcomR8500:
         Sc = "00"
         return self.writeToRadio(Cn,Sc)
 
-    def setFreq(self, freq):
+    def setFreq(self, freq): # toimii
         Cn = "05"
         Sc = ""
         data = self.FreqToRad(freq)
@@ -190,13 +194,14 @@ class IcomR8500:
         banknumber = str(banknumber).zfill(2)
         return self.writeToRadio(Cn, Sc, banknumber)
 
-    def MemoryWrite(self):
+        # select bank and channel, apply frequency etc and last MemoryWrite()
+    def MemoryWrite(self): # toimii
         Cn = "09"
         Sc = ""
         return self.writeToRadio(Cn)
 
-        # set channel parameters and write #TODO
-    def SetMCHContentAndWritePackage(self, banknumber, channelnumber, ChannelData):
+        # set channel parameters and write
+    def SetMCHContentAndWritePackage(self, banknumber, channelnumber, ChannelData): # toimii
         Cn = "1A"
         Sc = "00"
         banknumber = str(banknumber).zfill(2)
@@ -205,7 +210,7 @@ class IcomR8500:
         return self.writeToRadio(Cn, Sc, data)
 
         # set bank name 5 char long. ascii values
-    def SetBankName(self, bank, name):
+    def SetBankName(self, bank, name): # toimii
         Cn = "1A"
         Sc = "02"
         name = "{:>5}".format(name[:5])
@@ -214,80 +219,87 @@ class IcomR8500:
         data = bank+name
         return self.writeToRadio(Cn, Sc, data)
 
-    def MemoryClear(self):
+        # applies to currently selected channel, use BankSelection() and MemoryChannelSelection()
+    def MemoryClear(self): # toimii
         Cn = "0B"
-        Sc = None
-        return self.writeToRadio(Cn)
+        Sc = ""
+        return self.writeToRadio(Cn, Sc)
 
-    def StopScan(self):
+    def StopScan(self): # toimii
         Cn = "0E"
         Sc = "00"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def ProgrammedScanStart(self):
+        # scan specified frequency range
+    def ProgrammedScanStart(self): # toimii
         Cn = "0E"
         Sc = "02"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def AutoMemoryWriteScanStart(self):
+        # scan specified frequency range. save active frequencies.
+    def AutoMemoryWriteScanStart(self): # toimii
         Cn = "0E"
         Sc = "04"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
+        # scan whole bank, except skip # toimii
     def MemoryScanStart(self):
         Cn = "0E"
         Sc = "22"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
+        # scan only marked channels # toimii
     def SelectMemoryScanStart(self):
         Cn = "0E"
         Sc = "23"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def ModeSelectScanStart(self):
+    def ModeSelectScanStart(self): # toimii
         Cn = "0E"
         Sc = "24"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def PriorityScan(self):
+    def PriorityScan(self): # toimii
         Cn = "0E"
         Sc = "42"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def SEL_CH_Release(self):
+    def SEL_CH_Release(self): # toimii
         Cn = "0E"
         Sc = "B0"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def SEL_CH_Tag(self):
+    def SEL_CH_Tag(self): # toimi
         Cn = "0E"
         Sc = "B1"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def VSC_Deactivation(self):
+        # Voice scan control
+    def VSC_Deactivation(self): # toimii
         Cn = "0E"
         Sc = "C0"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def VSC_Activation(self):
+        # Voice scan control
+    def VSC_Activation(self): # toimii
         Cn = "0E"
         Sc = "C1"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def Scan_Resume_Selection_inf(self):
+    def Scan_Resume_Selection_inf(self): # toimii
         Cn = "0E"
         Sc = "D0"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def Scan_Resume_Selection_off(self):
+    def Scan_Resume_Selection_off(self): # toimii
         Cn = "0E"
         Sc = "D1"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
-    def Scan_Resume_Selection_DLY(self):
+    def Scan_Resume_Selection_DLY(self): # toimii
         Cn = "0E"
         Sc = "D3"
-        return self.writeToRadio(Cn)
+        return self.writeToRadio(Cn,Sc)
 
         # toimii, custom step TODO
         # programmable step 0.5 - 199.5 kHz in 0.5 kHz steps
@@ -427,7 +439,7 @@ class IcomR8500:
         return ''.join([value[i] for i in [8,9,6,7,4,5,2,3,0,1]])
     
 
-    def writeToRadio(self, Cn="", Sc="", data=""):
+    def writeToRadio(self, Cn="", Sc="", data=""): # toimii
         dataToRadio = self.header + self.radioAddress + self.computerAddress + Cn + Sc + data + "FD"
         print("dataToRadio: " + dataToRadio)
         testcode = bytes.fromhex(dataToRadio)
